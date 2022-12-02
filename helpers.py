@@ -49,7 +49,7 @@ class LSTM(nn.Module):
 
 # Plotting
 def training_loop(n_epochs, model, optimiser, loss_fn,
-                  train_input, train_target, test_input, test_target, model_name):
+                  train_input, train_target, test_input, test_target, model_name, file_name):
     generation = create_new_generation_folder(model_name)
     for i in range(n_epochs):
         def closure():
@@ -69,7 +69,7 @@ def training_loop(n_epochs, model, optimiser, loss_fn,
         # dr figures
         if ((i+1) % 25 == 0) or (i == 0):
             plt.figure(figsize=(12, 6))
-            plt.title(f"Step {i+1}")
+            plt.title(f"{file_name} | Step {i+1}")
             plt.xlabel("x")
             plt.ylabel("y")
             plt.xticks(fontsize=20)
@@ -81,17 +81,23 @@ def training_loop(n_epochs, model, optimiser, loss_fn,
                 plt.plot(np.arange(n, n+future),
                          yi[n:], colour+":", linewidth=2.0)
 
-            draw(y[0], 'r')
-            draw(y[0], 'r')
-            draw(y[1], 'b')
-            draw(y[2], 'g')
+            def draw_data(data):
+                # Hard-coded colors array
+                colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k']
+                if not data.any():
+                    return
+                for i, d in enumerate(data):
+                    draw(d, colors[i % len(colors)])
+
+            draw_data(y)
+
             plt.savefig(
                 f"{model_name}/gen_{generation}/predict{i+1}.png", dpi=200)
             plt.close()
             # print the loss
             out = model(train_input)
             loss_print = loss_fn(out, train_target)
-            print("Step: {}, Loss: {}".format(i, loss_print))
+            print("Step: {}, Loss: {}".format(i+1, loss_print))
 
 
 # General
@@ -124,7 +130,8 @@ def create_new_generation_folder(folder_location):
     gen_num = int(latest_gen_directory.split("_")[1])
 
     # Create a new directory named "gen_X+1" where X is the generation number of the latest directory
-    new_gen_directory = os.path.join(folder_location, f"gen_{gen_num+1}")
+    new_gen_directory = os.path.join(
+        folder_location, "gen_{}".format(gen_num+1))
     os.mkdir(new_gen_directory)
 
     return gen_num+1

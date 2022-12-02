@@ -39,8 +39,9 @@ for csv_file in os.listdir(data_folder):
     df = pd.read_csv(os.path.join(data_folder, csv_file), sep=';')
 
     # Drop missing records
-    df.dropna(subset=["Dygnsmedel"], inplace=True)
-    df.reset_index(drop=True, inplace=True)
+    df = df.dropna()
+    df = df[df['Dygnsmedel'] != "Nan"]
+    df = df.reset_index(drop=True)
 
     # Convert the temperature data to a numpy array
     dataset = df.iloc[:, 1].values
@@ -56,11 +57,12 @@ for csv_file in os.listdir(data_folder):
         [dataset[L*i:L*(i+1)] for i in range(N)]).astype(np.float32)
 
     # Split the formatted dataset into input and target data for training and testing
-    train_input = torch.from_numpy(formatted_dataset[3:, :-1])
-    train_target = torch.from_numpy(formatted_dataset[3:, 1:])
+    data_len = len(formatted_dataset)
+    train_input = torch.from_numpy(formatted_dataset[data_len-1:, :-1])
+    train_target = torch.from_numpy(formatted_dataset[data_len-1:, 1:])
 
-    test_input = torch.from_numpy(formatted_dataset[:3, :-1])
-    test_target = torch.from_numpy(formatted_dataset[:3, 1:])
+    test_input = torch.from_numpy(formatted_dataset[:data_len-1, :-1])
+    test_target = torch.from_numpy(formatted_dataset[:data_len-1, 1:])
 
     # Create the LSTM model
     model = LSTM()
@@ -78,7 +80,7 @@ for csv_file in os.listdir(data_folder):
 
     # Train the model
     training_loop(100, model, optimiser, criterion, train_input,
-                  train_target, test_input, test_target, model_name)
+                  train_target, test_input, test_target, model_name, csv_file)
 
     print(f"Finished training Generation {get_current_generation(model_name)}")
 
