@@ -1,145 +1,86 @@
 # conda activate base
 
+import os
+import sys
+import pandas as pd
 import numpy as np
+from helpers import LSTM, check_file, create_folder_if_not_exists, create_new_generation_folder, get_current_generation, training_loop
 import torch
 import torch.nn as nn
-import matplotlib.pyplot as plt
-import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
-from helpers import hoursSinceEpoch
+
+
+# Model to train
+model_name = "gothenburg_daily"
+
+# Setup
+folder_created = create_folder_if_not_exists(model_name)
+if folder_created:
+    create_folder_if_not_exists(f"{model_name}/data")
+    sys.exit()
 
 device = "mps" if torch.backends.mps.is_available() else "cpu"
 print(f"Using device: {device}")
 
-#
-# CONFIG DATASET
-#
 
-df = pd.read_csv("lunden.csv", sep=';')
+# Train
+data_folder = f"{model_name}/data"
+if not os.path.exists(data_folder) or not os.listdir(data_folder):
+    print("Data folder does not exist or is empty. Exiting.")
+    sys.exit()
 
-# Drop missing records
-df.dropna(subset=["Dygnsmedel"], inplace=True)
-df.reset_index(drop=True, inplace=True)
+for csv_file in os.listdir(data_folder):
+    # Check that the file is a CSV file
+    if not csv_file.endswith(".csv"):
+        continue
 
-dataset = df.iloc[:, 1].values
-dataset = dataset.astype(float)
+    print(f"Processing file: {csv_file}")
 
-train_window_end = 718
-train_dataset = dataset[0:train_window_end]
+    # Read the CSV file into a DataFrame
+    df = pd.read_csv(os.path.join(data_folder, csv_file), sep=';')
 
-scaler = MinMaxScaler(feature_range=(-1, 1))
+    # Drop missing records
+    df.dropna(subset=["Dygnsmedel"], inplace=True)
+    df.reset_index(drop=True, inplace=True)
 
-train_data_normalized = scaler.fit_transform(train_dataset.reshape(-1, 1))
-train_data_normalized = torch.FloatTensor(
-    train_data_normalized).view(-1).to(device)
+    # Convert the temperature data to a numpy array
+    dataset = df.iloc[:, 1].values
+    dataset = dataset.astype(float)
 
-#
-# TRAIN
-#
+    N_T = dataset.size
 
-train_window = 100
+    # Split the data into training and testing sets
+    L = 200
+    N = N_T//L
 
+    formatted_dataset = np.array(
+        [dataset[L*i:L*(i+1)] for i in range(N)]).astype(np.float32)
 
-def create_inout_sequences(input_data, tw):
-    inout_seq = []
-    L = len(input_data)
-    for i in range(L-tw):
-        train_seq = input_data[i:i+tw]
-        train_label = input_data[i+tw:i+tw+1]
-        inout_seq.append((train_seq, train_label))
-    return inout_seq
+    # Split the formatted dataset into input and target data for training and testing
+    train_input = torch.from_numpy(formatted_dataset[3:, :-1])
+    train_target = torch.from_numpy(formatted_dataset[3:, 1:])
 
+    test_input = torch.from_numpy(formatted_dataset[:3, :-1])
+    test_target = torch.from_numpy(formatted_dataset[:3, 1:])
 
-train_inout_seq = create_inout_sequences(train_data_normalized, train_window)
+    # Create the LSTM model
+    model = LSTM()
 
+    # Load the model if it exists
+    model_path = f"{model_name}/model.pt"
+    result = check_file(model_path)
+    if result:
+        model.load_state_dict(torch.load(model_path))
 
-class LSTM(nn.Module):
-    def __init__(self, input_size=1, hidden_layer_size=500, output_size=1):
-        super().__init__()
-        self.hidden_layer_size = hidden_layer_size
+    # Loss function
+    criterion = nn.MSELoss()
+    # Optimizer
+    optimiser = torch.optim.LBFGS(model.parameters(), lr=0.0025)
 
-        self.lstm = nn.LSTM(input_size, hidden_layer_size)
+    # Train the model
+    training_loop(100, model, optimiser, criterion, train_input,
+                  train_target, test_input, test_target, model_name)
 
-        self.linear = nn.Linear(hidden_layer_size, output_size)
+    print(f"Finished training Generation {get_current_generation(model_name)}")
 
-        self.hidden_cell = (torch.zeros(1, 1, self.hidden_layer_size).to(device),
-                            torch.zeros(1, 1, self.hidden_layer_size).to(device))
-
-        self.hidden_cell = (torch.zeros(1, 1, self.hidden_layer_size).to(device),
-                            torch.zeros(1, 1, self.hidden_layer_size).to(device))
-
-    def forward(self, input_seq):
-        lstm_out, self.hidden_cell = self.lstm(
-            input_seq.view(len(input_seq), 1, -1), self.hidden_cell)
-        predictions = self.linear(lstm_out.view(len(input_seq), -1))
-        return predictions[-1]
-
-#
-# TEST
-#
-
-
-from_save = False
-model_path = "./model_5"
-model = LSTM().to(device)
-
-if (from_save == False):
-    loss_function = nn.MSELoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-
-    epochs = 50
-
-    for i in range(epochs):
-        for seq, labels in train_inout_seq:
-            optimizer.zero_grad()
-            model.hidden_cell = (torch.zeros(1, 1, model.hidden_layer_size).to(device),
-                                 torch.zeros(1, 1, model.hidden_layer_size).to(device))
-
-            y_pred = model(seq)
-
-            single_loss = loss_function(y_pred, labels)
-            single_loss.backward()
-            optimizer.step()
-
-        print(f'epoch: {i:3} loss: {single_loss.item():10.8f}')
-
-    print(f'epoch: {i:3} loss: {single_loss.item():10.10f}')
-
+    # Save the trained model
     torch.save(model.state_dict(), model_path)
-    print("Model saved to: ", model_path)
-else:
-    model.load_state_dict(torch.load(model_path))
-
-
-fut_pred = 100
-
-test_inputs = train_data_normalized[-train_window:].tolist()
-
-model.eval()
-
-
-for i in range(fut_pred):
-    seq = torch.FloatTensor(test_inputs[-train_window:]).to(device)
-    with torch.no_grad():
-        model.hidden = (torch.zeros(1, 1, model.hidden_layer_size).to(device),
-                        torch.zeros(1, 1, model.hidden_layer_size).to(device))
-        test_inputs.append(model(seq).item())
-
-test_inputs[fut_pred:]
-actual_predictions = scaler.inverse_transform(
-    np.array(test_inputs[train_window:]).reshape(-1, 1))
-real_values = dataset[train_window_end:train_window_end + fut_pred]
-
-
-def printResult(list):
-    for i in enumerate(list):
-        print(f'{i[0]}: ', f'P  {i[1][0]}   ',  f'R   {i[1][1]}')
-
-
-print(actual_predictions.flatten())
-print(real_values)
-plt.plot(actual_predictions, real_values)
-plt.show()
-# print("(Predicted Value:Real value)", printResult(
-#     list(zip(actual_predictions.flatten().round(1).tolist(), real_values))))
