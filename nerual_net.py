@@ -67,7 +67,7 @@ for csv_file in os.listdir(data_folder):
     # Create the LSTM model
     model = LSTM()
 
-    # Load the model if it exists
+    # Load the model  it exists
     model_path = f"{model_name}/model.pt"
     result = check_file(model_path)
     if result:

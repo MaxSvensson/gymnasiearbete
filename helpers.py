@@ -46,6 +46,10 @@ class LSTM(nn.Module):
         outputs = torch.cat(outputs, dim=1)
         return outputs
 
+    def predict(self, x):
+        # Use the forward() method to make predictions on the input data
+        return self.forward(x)
+
 
 # Plotting
 def training_loop(n_epochs, model, optimiser, loss_fn,
@@ -81,15 +85,17 @@ def training_loop(n_epochs, model, optimiser, loss_fn,
                 plt.plot(np.arange(n, n+future),
                          yi[n:], colour+":", linewidth=2.0)
 
-            def draw_data(data):
+            def draw_data(data, max_lines=3):
                 # Hard-coded colors array
-                colors = ['b', 'r', 'g', 'c', 'm', 'y', 'k']
+                colors = ['b', 'r', 'g', 'm', 'c', 'y', 'k']
                 if not data.any():
                     return
                 for i, d in enumerate(data):
+                    if (i >= max_lines):
+                        return
                     draw(d, colors[i % len(colors)])
 
-            draw_data(y)
+            draw_data(y, max_lines=3)
 
             plt.savefig(
                 f"{model_name}/gen_{generation}/predict{i+1}.png", dpi=200)
