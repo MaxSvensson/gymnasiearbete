@@ -191,3 +191,10 @@ def check_file(file_path):
 
     # If the file exists and is not empty, return True
     return True
+
+
+# Move file to a folder
+def move_file(file_path, destination):
+    if os.path.exists(destination):
+        os.remove(destination)
+    os.rename(file_path, destination)

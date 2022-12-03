@@ -2,7 +2,7 @@ import os
 import sys
 import pandas as pd
 import numpy as np
-from helpers import LSTM, check_file, create_folder_if_not_exists, create_new_generation_folder, get_current_generation, training_loop
+from helpers import LSTM, check_file, create_folder_if_not_exists, get_current_generation, move_file, training_loop
 import torch
 import torch.nn as nn
 
@@ -14,6 +14,7 @@ model_name = "gothenburg_daily"
 folder_created = create_folder_if_not_exists(model_name)
 if folder_created:
     create_folder_if_not_exists(f"{model_name}/data")
+    create_folder_if_not_exists(f"{model_name}/processed_data")
     sys.exit()
 
 device = "mps" if torch.backends.mps.is_available() else "cpu"
@@ -22,6 +23,7 @@ print(f"Using device: {device}")
 
 # Train
 data_folder = f"{model_name}/data"
+processed_data_folder = f"{model_name}/processed_data"
 if not os.path.exists(data_folder) or not os.listdir(data_folder):
     print("Data folder does not exist or is empty. Exiting.")
     sys.exit()
@@ -84,3 +86,12 @@ for csv_file in os.listdir(data_folder):
 
     # Save the trained model
     torch.save(model.state_dict(), model_path)
+
+    # Check if processed data folder exists
+    if not os.path.exists(processed_data_folder):
+        create_folder_if_not_exists(f"{model_name}/processed_data")
+        print("Processed data folder created.")
+
+    # Move cvs file to processed_data folder
+    move_file(os.path.join(data_folder, csv_file),
+              f"{model_name}/processed_data/{csv_file}")
