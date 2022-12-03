@@ -120,14 +120,14 @@ def create_new_generation_folder(folder_location):
         os.mkdir(os.path.join(folder_location, "gen_1"))
         return 1
 
+    # Return the number of every gen_directory
+    gen_directories = [int(d.replace("gen_", "")) for d in gen_directories]
+
     # Sort the gen_ directories by name
     gen_directories.sort()
 
     # Get the name of the latest gen_ directory (which will be the last element in the sorted list)
-    latest_gen_directory = gen_directories[-1]
-
-    # Parse the generation number from the directory name
-    gen_num = int(latest_gen_directory.split("_")[1])
+    gen_num = gen_directories[-1]
 
     # Create a new directory named "gen_X+1" where X is the generation number of the latest directory
     new_gen_directory = os.path.join(
@@ -154,14 +154,14 @@ def get_current_generation(folder_location):
     if len(gen_directories) == 0:
         return 0
 
+    # Return the number of every gen_directory
+    gen_directories = [int(d.replace("gen_", "")) for d in gen_directories]
+
     # Sort the gen_ directories by name
     gen_directories.sort()
 
     # Get the name of the latest gen_ directory (which will be the last element in the sorted list)
-    latest_gen_directory = gen_directories[-1]
-
-    # Parse the generation number from the directory name
-    gen_num = int(latest_gen_directory.split("_")[1])
+    gen_num = gen_directories[-1]
 
     return gen_num
 

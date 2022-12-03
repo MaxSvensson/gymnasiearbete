@@ -1,5 +1,3 @@
-# conda activate base
-
 import os
 import sys
 import pandas as pd

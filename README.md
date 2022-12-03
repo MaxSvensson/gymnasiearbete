@@ -1,1 +1,3 @@
 # gymnasiearbete
+
+conda activate base
