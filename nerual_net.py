@@ -8,7 +8,7 @@ import torch.nn as nn
 
 
 # Model to train
-model_name = "gothenburg_daily"
+model_name = "gothenburg_daily_3"
 
 # Setup
 folder_created = create_folder_if_not_exists(model_name)
@@ -50,7 +50,7 @@ for csv_file in os.listdir(data_folder):
     N_T = dataset.size
 
     # Split the data into training and testing sets
-    L = 200
+    L = 30
     N = N_T//L
 
     formatted_dataset = np.array(
@@ -76,7 +76,7 @@ for csv_file in os.listdir(data_folder):
     # Loss function
     criterion = nn.MSELoss()
     # Optimizer
-    optimiser = torch.optim.LBFGS(model.parameters(), lr=0.0025)
+    optimiser = torch.optim.LBFGS(model.parameters(), lr=0.0005)
 
     # Train the model
     training_loop(100, model, optimiser, criterion, train_input,
